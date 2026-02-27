@@ -15,22 +15,16 @@ A secure Flask-based proxy service that translates Claude Code requests to the E
 
 ## Quick Start
 
-### 1. Set Up Python Environment (Recommended)
+### 1. Set Up with uv (Recommended)
 
-Create a virtual environment to avoid dependency conflicts:
-
-```bash
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-### 2. Install Dependencies
+This project uses [uv](https://github.com/astral-sh/uv) for fast dependency management.
 
 ```bash
-pip install -r requirements.txt
+# Install dependencies and create a virtual environment
+uv sync
 ```
 
-### 3. Configure Environment
+### 2. Configure Environment
 
 #### Get Your ELITEA Token
 
@@ -76,13 +70,13 @@ LOG_LEVEL=INFO
 ### 4. Start the Server
 
 ```bash
-python elitea-proxy.py
+uv run python elitea-proxy.py
 ```
 
 You can also check available models before starting:
 
 ```bash
-python elitea-proxy.py --list-models
+uv run python elitea-proxy.py --list-models
 ```
 
 The server will start on `http://localhost:4000` by default. You'll first see a colorful ASCII art banner for "Claude-Elitea Proxy", followed by startup information like:
@@ -118,7 +112,7 @@ The server will start on `http://localhost:4000` by default. You'll first see a 
 
 4. **Check available models:**
    ```bash
-   docker-compose exec elitea-proxy python elitea-proxy.py --list-models
+   docker-compose exec elitea-proxy uv run python elitea-proxy.py --list-models
    ```
 
 5. **Stop the service:**
@@ -140,7 +134,7 @@ docker run -d \
   elitea-proxy
 
 # Check available models
-docker exec elitea-proxy python elitea-proxy.py --list-models
+docker exec elitea-proxy uv run python elitea-proxy.py --list-models
 
 # Check logs
 docker logs elitea-proxy
@@ -178,13 +172,13 @@ All configuration is managed through environment variables. See `.env.example` f
 
 ```bash
 # Start the proxy server (default behavior)
-python elitea-proxy.py
+uv run python elitea-proxy.py
 
 # List available models from ELITEA API and exit
-python elitea-proxy.py --list-models
+uv run python elitea-proxy.py --list-models
 
 # Show help
-python elitea-proxy.py --help
+uv run python elitea-proxy.py --help
 ```
 
 ### Making the Script Executable
@@ -268,19 +262,19 @@ If the ELITEA API is unreachable, it falls back to showing the configured local 
 # Method 1: Environment variables
 export SERVER_DEBUG=true
 export LOG_LEVEL=DEBUG
-python elitea-proxy.py
+uv run python elitea-proxy.py
 
 # Method 2: Add to your .env file
 echo "SERVER_DEBUG=true" >> .env
 echo "LOG_LEVEL=DEBUG" >> .env
-python elitea-proxy.py
+uv run python elitea-proxy.py
 ```
 
 ### Testing the Service
 
 ```bash
-# Check available models (works without ELITEA_TOKEN)
-python elitea-proxy.py --list-models
+# Check available models (requires ELITEA_TOKEN, shows available models)
+uv run python elitea-proxy.py --list-models
 
 # Health check
 curl http://localhost:4000/health
@@ -318,7 +312,8 @@ The proxy provides appropriate HTTP status codes and error messages:
 
 - `elitea-proxy.py` - Main application with CLI interface
 - `config.py` - Configuration management
-- `requirements.txt` - Python dependencies
+- `pyproject.toml` - Project configuration and dependencies
+- `uv.lock` - Locked dependency versions
 - `.env.example` - Environment configuration template
 - `Dockerfile` - Docker container configuration
 - `docker-compose.yml` - Docker Compose service definition
@@ -345,9 +340,9 @@ The proxy provides appropriate HTTP status codes and error messages:
 - **Cause**: Dependencies not installed or wrong Python environment
 - **Solution**:
   ```bash
-  pip install -r requirements.txt
-  # Or if using virtual environment:
-  source venv/bin/activate && pip install -r requirements.txt
+  uv sync
+  # Then run with:
+  uv run python elitea-proxy.py
   ```
 
 #### Server starts but health check shows "elitea_status": "connection_failed"
@@ -359,14 +354,13 @@ The proxy provides appropriate HTTP status codes and error messages:
 
 #### "externally-managed-environment" error when installing dependencies
 - **Cause**: System Python environment protection (common on Ubuntu 23.04+)
-- **Solution**: Use a virtual environment or Docker:
+- **Solution**: Use `uv` or Docker:
   ```bash
-  # Option 1: Virtual environment
-  python3 -m venv venv
-  source venv/bin/activate
-  pip install -r requirements.txt
+  # Option 1: Use uv (recommended)
+  uv sync
+  uv run python elitea-proxy.py
 
-  # Option 2: Use Docker (recommended)
+  # Option 2: Use Docker
   docker-compose up -d
   ```
 
@@ -380,7 +374,7 @@ SERVER_DEBUG=true
 LOG_LEVEL=DEBUG
 
 # Or set temporarily:
-SERVER_DEBUG=true LOG_LEVEL=DEBUG python elitea-proxy.py
+SERVER_DEBUG=true LOG_LEVEL=DEBUG uv run python elitea-proxy.py
 ```
 
 ### Verify Setup
@@ -389,7 +383,7 @@ Test your installation with these commands:
 
 ```bash
 # 1. List models (requires ELITEA_TOKEN, shows available models)
-python elitea-proxy.py --list-models
+uv run python elitea-proxy.py --list-models
 
 # 2. Health check (should return status info)
 curl http://localhost:4000/health

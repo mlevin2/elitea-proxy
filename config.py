@@ -73,7 +73,7 @@ class Config:
         }
 
         # Parameters to strip from requests
-        self.UNSUPPORTED_PARAMS = ['thinking', 'anthropic_beta']
+        self.UNSUPPORTED_PARAMS = ['anthropic_beta']
 
         # Headers for ELITEA API
         self.ELITEA_HEADERS = {

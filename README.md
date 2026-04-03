@@ -167,6 +167,20 @@ All configuration is managed through environment variables. See `.env.example` f
 | `TOKEN_ESTIMATION_RATIO` | `4` | Characters per token for estimation |
 | `STRIP_PARAMS` | (empty) | Comma-separated list of additional parameters to strip from requests |
 
+## Claude Code Integration
+
+After starting the proxy, configure Claude Code to use it by setting these three environment variables:
+
+```bash
+export ANTHROPIC_BASE_URL=http://0.0.0.0:4000
+export ANTHROPIC_AUTH_TOKEN=abc  # can be anything — the proxy ignores it
+export ANTHROPIC_MODEL=eu.anthropic.claude-sonnet-4-20250514-v1:0  # use a model from --list-models
+```
+
+> **Important — model identity and the Opus illusion**: Because of the proxy's model mappings, Claude Code will *genuinely believe* it is running on Claude Opus. If you ask it which model it is using, it will say Opus. This is expected and by design: the proxy intercepts requests that ask for Opus, and since no Opus model is available through ELITEA, it silently routes those requests to the best available Sonnet model. The client never sees the substitution.
+
+Replace the value of `ANTHROPIC_MODEL` with any model returned by `--list-models`. Using a fully-qualified ELITEA model name (e.g. `eu.anthropic.claude-sonnet-4-20250514-v1:0`) means the proxy passes it through unchanged with no additional mapping step.
+
 ## Usage
 
 ### Command Line Options

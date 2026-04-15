@@ -28,6 +28,22 @@ app = Flask(__name__)
 # Setup logging
 logger = config.setup_logging()
 
+def strip_unsupported_params(data):
+    """Recursively strip unsupported parameters from the request body."""
+    if isinstance(data, dict):
+        # List of parameters to strip from any dictionary
+        params_to_strip = config.UNSUPPORTED_PARAMS + ['cache_control']
+        
+        return {
+            k: strip_unsupported_params(v) 
+            for k, v in data.items() 
+            if k not in params_to_strip
+        }
+    elif isinstance(data, list):
+        return [strip_unsupported_params(item) for item in data]
+    else:
+        return data
+
 @app.route('/v1/messages', methods=['POST'])
 def proxy_messages():
     """Proxy /v1/messages requests to ELITEA"""
@@ -52,17 +68,18 @@ def proxy_messages():
             if original_model != body['model']:
                 logger.info(f"Mapped model {original_model} -> {body['model']}")
 
-        # Remove unsupported parameters
-        removed_params = []
-        for param in config.UNSUPPORTED_PARAMS:
-            if body.pop(param, None) is not None:
-                removed_params.append(param)
+        # Ensure max_tokens is present (required by some ELITEA endpoints)
+        if 'max_tokens' not in body:
+            body['max_tokens'] = 4096
+            logger.info("Added default max_tokens: 4096")
 
-        if removed_params:
-            logger.info(f"Removed unsupported parameters: {removed_params}")
+        # Recursively strip unsupported parameters (including cache_control)
+        body = strip_unsupported_params(body)
 
         # Get headers for ELITEA
         headers = config.get_elitea_headers()
+
+        logger.debug(f"Request body being sent to ELITEA: {json.dumps(body)}")
 
         # Forward the request to ELITEA
         response = requests.post(
@@ -74,6 +91,14 @@ def proxy_messages():
         )
 
         logger.info(f"ELITEA response status: {response.status_code}")
+
+        # If it's an error status, log the body to help diagnose
+        if response.status_code >= 400:
+            try:
+                error_body = response.json()
+                logger.error(f"ELITEA error response: {json.dumps(error_body)}")
+            except:
+                logger.error(f"ELITEA error response (non-JSON): {response.text}")
 
         # Return ELITEA's response
         return Response(

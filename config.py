@@ -37,7 +37,7 @@ class Config:
         self.SERVER_HOST = os.getenv('SERVER_HOST', '0.0.0.0')
         self.SERVER_PORT = int(os.getenv('SERVER_PORT', '4000'))
         self.SERVER_DEBUG = os.getenv('SERVER_DEBUG', 'false').lower() == 'true'
-        self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+        self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'DEBUG').upper()
 
         # Logging configuration
         self.LOG_FILE = os.getenv('LOG_FILE', 'logs/elitea-proxy.log')

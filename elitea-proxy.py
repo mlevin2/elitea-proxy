@@ -106,7 +106,9 @@ def proxy_messages():
             'transfer-encoding',  # Flask handles this for streaming
             'content-encoding',   # Can cause conflicts with streaming
             'connection',         # Flask manages connection headers
-            'content-length'      # Flask calculates this for streaming
+            'content-length',     # Flask calculates this for streaming
+            'server',             # Flask adds its own Server header
+            'date'                # Flask adds its own Date header
         }
 
         excluded_headers = []

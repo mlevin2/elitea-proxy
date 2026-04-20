@@ -100,11 +100,30 @@ def proxy_messages():
             except:
                 logger.error(f"ELITEA error response (non-JSON): {response.text}")
 
-        # Return ELITEA's response
+        # Filter headers to avoid conflicts with Flask's automatic header handling
+        filtered_headers = {}
+        headers_to_exclude = {
+            'transfer-encoding',  # Flask handles this for streaming
+            'content-encoding',   # Can cause conflicts with streaming
+            'connection',         # Flask manages connection headers
+            'content-length'      # Flask calculates this for streaming
+        }
+
+        excluded_headers = []
+        for key, value in response.headers.items():
+            if key.lower() not in headers_to_exclude:
+                filtered_headers[key] = value
+            else:
+                excluded_headers.append(key)
+
+        if excluded_headers:
+            logger.debug(f"Excluded headers to prevent conflicts: {excluded_headers}")
+
+        # Return ELITEA's response with properly filtered headers
         return Response(
             response.iter_content(chunk_size=config.STREAM_CHUNK_SIZE),
             status=response.status_code,
-            headers=dict(response.headers)
+            headers=filtered_headers
         )
 
     except requests.exceptions.RequestException as e:

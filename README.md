@@ -13,6 +13,13 @@ A secure Flask-based proxy service that translates Claude Code requests to the E
 - **Comprehensive Logging**: Structured logging with configurable levels
 - **Streaming Support**: Full support for streaming responses
 
+## Shell completions
+
+`elitea-proxy.py` supports fish and zsh completions:
+
+- `elitea-proxy.py --print-completion fish|zsh`
+- `elitea-proxy.py install-completion fish|zsh`
+
 ## Quick Start
 
 ### 1. Set Up with uv (Recommended)

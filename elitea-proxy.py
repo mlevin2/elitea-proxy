@@ -4,6 +4,18 @@ Simple proxy to translate Claude Code requests to ELITEA API.
 Handles authentication header conversion and strips unsupported beta flags.
 """
 
+import os
+import sys
+
+# Best-effort shell completions (fish/zsh).
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "tools"))
+try:
+    from cli_completion import maybe_handle as _cli_completion_maybe_handle
+
+    _cli_completion_maybe_handle(os.path.abspath(sys.argv[0]), sys.argv)
+except Exception:
+    pass
+
 from flask import Flask, request, Response
 import requests
 import json

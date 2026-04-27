@@ -20,6 +20,8 @@ A secure Flask-based proxy service that translates Claude Code requests to the E
 - `elitea-proxy.py --print-completion fish|zsh`
 - `elitea-proxy.py install-completion fish|zsh`
 
+Implementation: this repo vendors a tiny helper at `tools/cli_completion.py` (not a standalone project). Completions are derived from `--help` output.
+
 ## Quick Start
 
 ### 1. Set Up with uv (Recommended)

@@ -84,6 +84,13 @@ class Config:
                 if param not in self.UNSUPPORTED_PARAMS:
                     self.UNSUPPORTED_PARAMS.append(param)
 
+        # Default model to advertise to Claude Code clients
+        # Can be overridden with ANTHROPIC_MODEL env var
+        self.ANTHROPIC_MODEL = os.getenv(
+            'ANTHROPIC_MODEL',
+            'eu.anthropic.claude-sonnet-4-6'
+        )
+
         # Headers for ELITEA API
         self.ELITEA_HEADERS = {
             'Content-Type': 'application/json',
@@ -106,6 +113,14 @@ class Config:
         headers = self.ELITEA_HEADERS.copy()
         headers['Authorization'] = f'Bearer {self.ELITEA_TOKEN}'
         return headers
+
+    def get_claude_env_vars(self) -> Dict[str, str]:
+        """Return the env vars Claude Code needs to use this proxy."""
+        return {
+            'ANTHROPIC_BASE_URL': f'http://localhost:{self.SERVER_PORT}',
+            'ANTHROPIC_AUTH_TOKEN': 'elitea-proxy',
+            'ANTHROPIC_MODEL': self.ANTHROPIC_MODEL,
+        }
 
     def get_mapped_model(self, model: str) -> str:
         """Get the mapped model name for ELITEA API."""

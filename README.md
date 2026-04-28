@@ -178,17 +178,69 @@ All configuration is managed through environment variables. See `.env.example` f
 
 ## Claude Code Integration
 
-After starting the proxy, configure Claude Code to use it by setting these three environment variables:
+Three environment variables tell Claude Code to use the proxy:
+
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `ANTHROPIC_BASE_URL` | `http://localhost:4000` | Points Claude at the proxy |
+| `ANTHROPIC_AUTH_TOKEN` | anything | Proxy ignores it; just needs to be set |
+| `ANTHROPIC_MODEL` | e.g. `eu.anthropic.claude-sonnet-4-6` | Use a model from `--list-models` |
+
+There are three ways to set them, from easiest to most manual.
+
+### Option 1 — All-in-one launch (host/direct only)
 
 ```bash
-export ANTHROPIC_BASE_URL=http://0.0.0.0:4000
-export ANTHROPIC_AUTH_TOKEN=abc  # can be anything — the proxy ignores it
-export ANTHROPIC_MODEL=eu.anthropic.claude-sonnet-4-20250514-v1:0  # use a model from --list-models
+uv run python elitea-proxy.py --launch
+# Pass extra Claude Code args after --
+uv run python elitea-proxy.py --launch -- --resume
+```
+
+Starts the proxy in a background thread and immediately runs `claude` with the correct environment variables already injected. When you quit Claude, the proxy shuts down too.
+
+> **Note**: `--launch` only works when running the proxy directly on the host. It cannot be used with the Docker deployment because the `claude` binary is not available inside the container. Use Option 2 or 3 with Docker instead.
+
+### Option 2 — Source the env vars into your shell
+
+Start the proxy first (directly or via Docker), then source the env vars:
+
+```fish
+# fish — direct
+source (uv run python elitea-proxy.py --print-env fish | psub)
+
+# fish — Docker
+source (docker-compose exec elitea-proxy python elitea-proxy.py --print-env fish | psub)
+```
+
+```bash
+# zsh / bash — direct
+source <(uv run python elitea-proxy.py --print-env)
+
+# zsh / bash — Docker
+source <(docker-compose exec elitea-proxy python elitea-proxy.py --print-env)
+```
+
+`--print-env` auto-detects your shell when no argument is given. After sourcing, start `claude` normally in the same shell session.
+
+### Option 3 — Set variables manually
+
+When the proxy starts it prints a panel with the exact commands for your shell. You can also set them yourself:
+
+```bash
+export ANTHROPIC_BASE_URL=http://localhost:4000
+export ANTHROPIC_AUTH_TOKEN=elitea-proxy  # can be anything — the proxy ignores it
+export ANTHROPIC_MODEL=eu.anthropic.claude-sonnet-4-6  # use a model from --list-models
+```
+
+Override the default model by setting `ANTHROPIC_MODEL` in `.env`:
+
+```
+ANTHROPIC_MODEL=eu.anthropic.claude-haiku-4-5-20251001-v1:0
 ```
 
 > **Important — model identity and the Opus illusion**: Because of the proxy's model mappings, Claude Code will *genuinely believe* it is running on Claude Opus. If you ask it which model it is using, it will say Opus. This is expected and by design: the proxy intercepts requests that ask for Opus, and since no Opus model is available through ELITEA, it silently routes those requests to the best available Sonnet model. The client never sees the substitution.
 
-Replace the value of `ANTHROPIC_MODEL` with any model returned by `--list-models`. Using a fully-qualified ELITEA model name (e.g. `eu.anthropic.claude-sonnet-4-20250514-v1:0`) means the proxy passes it through unchanged with no additional mapping step.
+Use a fully-qualified ELITEA model name (from `--list-models`) as the value of `ANTHROPIC_MODEL` and the proxy will pass it through with no additional mapping.
 
 ## Usage
 
@@ -200,6 +252,15 @@ uv run python elitea-proxy.py
 
 # List available models from ELITEA API and exit
 uv run python elitea-proxy.py --list-models
+
+# Print shell export commands for Claude Code integration (host/direct only)
+uv run python elitea-proxy.py --print-env         # auto-detect shell
+uv run python elitea-proxy.py --print-env fish    # fish: set -x ...
+uv run python elitea-proxy.py --print-env zsh     # zsh/bash: export ...
+
+# Start proxy and launch claude in one command (host/direct only — not Docker)
+uv run python elitea-proxy.py --launch
+uv run python elitea-proxy.py --launch -- --resume   # pass args to claude
 
 # Show help
 uv run python elitea-proxy.py --help

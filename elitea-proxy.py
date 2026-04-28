@@ -6,6 +6,9 @@ Handles authentication header conversion and strips unsupported beta flags.
 
 import os
 import sys
+import subprocess
+import threading
+import time
 
 # Best-effort shell completions (fish/zsh).
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "tools"))
@@ -349,6 +352,93 @@ def list_models():
     print()
     print(f"{Fore.BLUE}Note:{Style.RESET_ALL} Claude Code model names are automatically mapped to ELITEA-compatible models")
 
+def _detect_shell() -> str:
+    """Return 'fish', 'zsh', or 'bash' based on $SHELL."""
+    shell_path = os.environ.get('SHELL', '')
+    if 'fish' in shell_path:
+        return 'fish'
+    if 'zsh' in shell_path:
+        return 'zsh'
+    return 'bash'
+
+
+def print_env(shell: str | None = None) -> None:
+    """Print shell-specific export commands for Claude Code integration."""
+    if shell is None:
+        shell = _detect_shell()
+
+    env_vars = config.get_claude_env_vars()
+
+    if shell == 'fish':
+        for k, v in env_vars.items():
+            print(f'set -x {k} "{v}"')
+    else:  # bash / zsh
+        for k, v in env_vars.items():
+            print(f'export {k}="{v}"')
+
+
+def _display_env_hint() -> None:
+    """Print a startup panel showing how to point Claude Code at this proxy."""
+    shell = _detect_shell()
+    env_vars = config.get_claude_env_vars()
+
+    if shell == 'fish':
+        lines = [f'  set -x {k} "{v}"' for k, v in env_vars.items()]
+        eval_hint = f'  eval (python elitea-proxy.py --print-env fish | psub)'
+        launch_hint = '  python elitea-proxy.py --launch'
+    else:
+        lines = [f'  export {k}="{v}"' for k, v in env_vars.items()]
+        eval_hint = f'  source <(python elitea-proxy.py --print-env)'
+        launch_hint = '  python elitea-proxy.py --launch'
+
+    width = max(len(l) for l in lines + [eval_hint, launch_hint]) + 2
+
+    def row(text=''):
+        pad = width - len(text)
+        return f'{Fore.GREEN}│{Style.RESET_ALL} {text}{" " * pad}{Fore.GREEN}│{Style.RESET_ALL}'
+
+    bar = f'{Fore.GREEN}{"─" * (width + 2)}{Style.RESET_ALL}'
+    print(f'{Fore.GREEN}┌{bar}┐{Style.RESET_ALL}')
+    print(row(f'{Style.BRIGHT}Claude Code environment — paste into your shell:{Style.RESET_ALL}'))
+    print(row())
+    for l in lines:
+        print(row(l))
+    print(row())
+    print(row(f'{Fore.YELLOW}Or source automatically:{Style.RESET_ALL}'))
+    print(row(eval_hint))
+    print(row())
+    print(row(f'{Fore.YELLOW}Or let the proxy launch claude for you:{Style.RESET_ALL}'))
+    print(row(launch_hint))
+    print(f'{Fore.GREEN}└{bar}┘{Style.RESET_ALL}')
+    print()
+
+
+def launch_with_claude(claude_args: list[str]) -> None:
+    """Start the proxy in a background thread then exec claude with env vars set."""
+    import werkzeug.serving
+
+    # Use werkzeug's make_server so we can start it in a thread cleanly
+    server = werkzeug.serving.make_server(
+        config.SERVER_HOST, config.SERVER_PORT, app, threaded=True
+    )
+
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+
+    # Give Flask a moment to bind
+    time.sleep(0.5)
+    logger.info(
+        f"Proxy running on http://localhost:{config.SERVER_PORT} — launching claude"
+    )
+
+    env = os.environ.copy()
+    env.update(config.get_claude_env_vars())
+
+    cmd = ['claude'] + claude_args
+    result = subprocess.run(cmd, env=env)
+    sys.exit(result.returncode)
+
+
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -356,8 +446,12 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                    # Start the proxy server
-  %(prog)s --list-models      # Show available models
+  %(prog)s                         # Start the proxy server
+  %(prog)s --list-models           # Show available models
+  %(prog)s --print-env             # Print export commands (auto-detect shell)
+  %(prog)s --print-env fish        # Print fish set -x commands
+  %(prog)s --launch                # Start proxy and launch claude
+  %(prog)s --launch -- --resume    # Start proxy and launch claude with args
         """
     )
 
@@ -365,6 +459,26 @@ Examples:
         '--list-models',
         action='store_true',
         help='List available models and exit (does not start server)'
+    )
+
+    parser.add_argument(
+        '--print-env',
+        nargs='?',
+        const='auto',
+        metavar='SHELL',
+        help='Print shell export commands (fish/zsh/bash, default: auto-detect)'
+    )
+
+    parser.add_argument(
+        '--launch',
+        action='store_true',
+        help='Start proxy in background and launch claude with env vars injected'
+    )
+
+    parser.add_argument(
+        'claude_args',
+        nargs=argparse.REMAINDER,
+        help='Arguments forwarded to claude when using --launch (put after --)'
     )
 
     return parser.parse_args()
@@ -379,13 +493,34 @@ if __name__ == '__main__':
             list_models()
             exit(0)
 
+        # Handle --print-env flag
+        if args.print_env is not None:
+            shell = None if args.print_env == 'auto' else args.print_env
+            print_env(shell)
+            exit(0)
+
         # Display startup banner
         display_startup_banner()
 
-        # Validate configuration on startup
+        # Strip leading '--' separator that argparse passes through with REMAINDER
+        claude_args = args.claude_args
+        if claude_args and claude_args[0] == '--':
+            claude_args = claude_args[1:]
+
+        # Handle --launch: start proxy in background then exec claude
+        if args.launch:
+            logger.info(f"Starting ELITEA proxy server on http://localhost:{config.SERVER_PORT}")
+            logger.info(f"Forwarding requests to: {config.ELITEA_BASE_URL}")
+            launch_with_claude(claude_args)
+            # launch_with_claude calls sys.exit, so we never reach here
+            exit(0)
+
+        # Normal server start
         logger.info(f"Starting ELITEA proxy server on http://{config.SERVER_HOST}:{config.SERVER_PORT}")
         logger.info(f"Forwarding requests to: {config.ELITEA_BASE_URL}")
         logger.info(f"Configuration: {config}")
+
+        _display_env_hint()
 
         # Start the Flask application
         app.run(

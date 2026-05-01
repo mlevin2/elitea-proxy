@@ -198,6 +198,8 @@ uv run python elitea-proxy.py --launch -- --resume
 
 Starts the proxy in a background thread and immediately runs `claude` with the correct environment variables already injected. When you quit Claude, the proxy shuts down too.
 
+When launched through the `elitea-proxy` wrapper script, Claude starts in the directory where you ran the command, not the proxy project's directory.
+
 In this mode, the proxy runs silently in the terminal so its output does not mix with Claude's interactive output. You will not see proxy startup, request, or error logs in the terminal; they continue to be written to `logs/elitea-proxy.log`.
 
 > **Note**: `--launch` only works when running the proxy directly on the host. It cannot be used with the Docker deployment because the `claude` binary is not available inside the container. Use Option 2 or 3 with Docker instead.

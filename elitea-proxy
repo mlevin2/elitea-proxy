@@ -3,6 +3,7 @@
 # This script ensures it runs in the project directory with the correct environment.
 
 PROJECT_DIR="/Users/mlevin/software/elitea-proxy"
+export ELITEA_PROXY_CALLER_CWD="$PWD"
 cd "$PROJECT_DIR" || exit 1
 
 # Check if uv is installed

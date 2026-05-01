@@ -484,7 +484,8 @@ def launch_with_claude(claude_args: list[str]) -> None:
     env.update(config.get_claude_env_vars())
 
     cmd = ['claude'] + claude_args
-    result = subprocess.run(cmd, env=env)
+    launch_cwd = os.environ.get('ELITEA_PROXY_CALLER_CWD') or os.getcwd()
+    result = subprocess.run(cmd, env=env, cwd=launch_cwd)
     sys.exit(result.returncode)
 
 

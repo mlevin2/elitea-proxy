@@ -43,6 +43,18 @@ app = Flask(__name__)
 # Setup logging
 logger = config.setup_logging()
 
+
+def _configure_launch_logging() -> None:
+    """Keep proxy output out of Claude's interactive terminal in --launch mode."""
+    for handler in list(logger.handlers):
+        if isinstance(handler, logging.StreamHandler) and not isinstance(
+            handler, logging.FileHandler
+        ):
+            logger.removeHandler(handler)
+
+    logging.getLogger('werkzeug').disabled = True
+
+
 def strip_unsupported_params(data):
     """Recursively strip unsupported parameters from the request body."""
     if isinstance(data, dict):
@@ -499,9 +511,6 @@ if __name__ == '__main__':
             print_env(shell)
             exit(0)
 
-        # Display startup banner
-        display_startup_banner()
-
         # Strip leading '--' separator that argparse passes through with REMAINDER
         claude_args = args.claude_args
         if claude_args and claude_args[0] == '--':
@@ -509,11 +518,15 @@ if __name__ == '__main__':
 
         # Handle --launch: start proxy in background then exec claude
         if args.launch:
+            _configure_launch_logging()
             logger.info(f"Starting ELITEA proxy server on http://localhost:{config.SERVER_PORT}")
             logger.info(f"Forwarding requests to: {config.ELITEA_BASE_URL}")
             launch_with_claude(claude_args)
             # launch_with_claude calls sys.exit, so we never reach here
             exit(0)
+
+        # Display startup banner
+        display_startup_banner()
 
         # Normal server start
         logger.info(f"Starting ELITEA proxy server on http://{config.SERVER_HOST}:{config.SERVER_PORT}")

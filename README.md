@@ -95,6 +95,14 @@ The server will start on `http://localhost:4000` by default. You'll first see a 
 2024-XX-XX XX:XX:XX,XXX - elitea-proxy - INFO - Forwarding requests to: https://next.elitea.ai/llm/v1
 ```
 
+Use `--port` to choose a different port:
+
+```bash
+uv run python elitea-proxy.py --port 4001
+```
+
+If the requested port is already in use, the proxy automatically uses the next available port and prints environment variables for that selected port.
+
 ## Docker Quick Start
 
 ### Prerequisites
@@ -194,6 +202,8 @@ There are three ways to set them, from easiest to most manual.
 uv run python elitea-proxy.py --launch
 # Pass extra Claude Code args after --
 uv run python elitea-proxy.py --launch -- --resume
+# Pick a specific starting port
+uv run python elitea-proxy.py --port 4001 --launch
 ```
 
 Starts the proxy in a background thread and immediately runs `claude` with the correct environment variables already injected. When you quit Claude, the proxy shuts down too.

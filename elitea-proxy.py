@@ -5,6 +5,7 @@ Handles authentication header conversion and strips unsupported beta flags.
 """
 
 import os
+import socket
 import sys
 import subprocess
 import threading
@@ -389,6 +390,42 @@ def print_env(shell: str | None = None) -> None:
             print(f'export {k}="{v}"')
 
 
+def _validate_port(value: str) -> int:
+    """Return a valid TCP port parsed from the command line."""
+    try:
+        port = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError('port must be an integer')
+
+    if port < 1 or port > 65535:
+        raise argparse.ArgumentTypeError('port must be between 1 and 65535')
+
+    return port
+
+
+def _port_is_available(port: int) -> bool:
+    """Return whether the configured host can bind to port."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind((config.SERVER_HOST, port))
+        except OSError:
+            return False
+    return True
+
+
+def _select_server_port(start_port: int) -> int:
+    """Use start_port, or the next available port if it is already in use."""
+    for port in range(start_port, 65536):
+        if _port_is_available(port):
+            if port != start_port:
+                logger.warning(
+                    f"Port {start_port} is in use; using port {port} instead"
+                )
+            return port
+
+    raise RuntimeError(f"No available port found at or above {start_port}")
+
+
 def _display_env_hint() -> None:
     """Print a startup panel showing how to point Claude Code at this proxy."""
     shell = _detect_shell()
@@ -462,7 +499,9 @@ Examples:
   %(prog)s --list-models           # Show available models
   %(prog)s --print-env             # Print export commands (auto-detect shell)
   %(prog)s --print-env fish        # Print fish set -x commands
+  %(prog)s --port 4001             # Start on a specific port
   %(prog)s --launch                # Start proxy and launch claude
+  %(prog)s --port 4001 --launch    # Launch claude through a specific port
   %(prog)s --launch -- --resume    # Start proxy and launch claude with args
         """
     )
@@ -479,6 +518,13 @@ Examples:
         const='auto',
         metavar='SHELL',
         help='Print shell export commands (fish/zsh/bash, default: auto-detect)'
+    )
+
+    parser.add_argument(
+        '--port',
+        type=_validate_port,
+        default=config.SERVER_PORT,
+        help=f'Server port to use (default: {config.SERVER_PORT}; tries next port if busy)'
     )
 
     parser.add_argument(
@@ -500,6 +546,8 @@ if __name__ == '__main__':
         # Parse command line arguments
         args = parse_args()
 
+        config.SERVER_PORT = args.port
+
         # Handle --list-models flag
         if args.list_models:
             list_models()
@@ -515,6 +563,8 @@ if __name__ == '__main__':
         claude_args = args.claude_args
         if claude_args and claude_args[0] == '--':
             claude_args = claude_args[1:]
+
+        config.SERVER_PORT = _select_server_port(args.port)
 
         # Handle --launch: start proxy in background then exec claude
         if args.launch:
